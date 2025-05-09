@@ -55,7 +55,7 @@ Public Class F_Main
 	Dim MyPhoto As Object
 	Dim MyPhotoPath As String
 	Dim MyPhotoName As String
-	Dim MyPhotoNames As String()
+	Dim MyPhotoNames As new List(Of String) ()
 	Dim PhotoShopApp
 	Dim PhotoShopProcess
 	Dim OutputFileName As String
@@ -102,7 +102,7 @@ Public Class F_Main
 '
 '   Create Photoshop object and re-size it's main windows to occupy half the monitor
 '
-		On Error Resume Next												' Handle errors internally
+		On Error Resume Next														' Handle errors internally
 		Err.Clear
 
 		Me.SL_Main.Text = "Launching Photoshop"
@@ -117,16 +117,53 @@ Public Class F_Main
 		Me.SS_Main.Update
 		AppendToRTB ( "Photoshop launched" &vbCrLf, Color.Black, StndFont )
 
-		PhotoShopProcess = Process.GetProcessesByName("Photoshop")          ' Array containing the Photoshop Process
+		PhotoShopProcess = Process.GetProcessesByName("Photoshop")					' Array containing the Photoshop Process
 
-		Call ResizePhotoshopWindow(PhotoShopProcess(0).MainWindowHandle)    ' Resize the Photoshop window to occupy the right-hand side of the monitor
-'
-'	If there is an open photo in Photoshop, link to the active document (image)
-'
-		PhotoShopApp.Preferences.RulerUnits = 3								'for PsUnits --> 1 (psCm)
-		PhotoShopApp.DisplayDialogs = 3                                     'for PsDialogModes --> 3 (psDisplayNoDialogs)
+		Call ResizePhotoshopWindow(PhotoShopProcess(0).MainWindowHandle)			' Resize the Photoshop window to occupy the right-hand side of the monitor
 
+		PhotoShopApp.Preferences.RulerUnits = 3										'for PsUnits --> 1 (psCm)
+		PhotoShopApp.DisplayDialogs = 3												'for PsDialogModes --> 3 (psDisplayNoDialogs)
+'
+'	If there are an open photos in Photoshop, ask the user if they are to be processed
+'
 		If PhotoShopApp.Documents.Count > 0 Then
+			Using New CentreDialog(Me)
+				r = MsgBox( "Process just curently opened photo(s) ?" + Environment.NewLine + Environment.NewLine +
+							"Yes - Just process the opened photos" + Environment.NewLine +
+							"No - Process all photos in the folder", vbQuestion + vbYesNoCancel + vbMsgBoxSetForeground, "GGN PhotoShop Automation" )
+			End Using
+
+			If r = vbCancel Then
+				Exit Sub
+'
+'	Just the opened photos are to be processed
+'
+			ElseIf r = vbYes Then
+				MyPhotoNames.Clear()
+				For i = 1 To PhotoShopApp.Documents.Count
+					MyPhotoNames.Add( PhotoShopApp.Documents(i).FullName )
+				Next
+'
+'	All the photos in the same folder as the opened photos are to be processed
+'
+			ElseIf r = vbNo Then
+				MyPhotoNames.Clear()
+				Dim FirstName As String = PhotoShopApp.Documents(1).FullName
+				Dim FileNames As List (Of String)
+				FileNames = Directory.GetFiles(FirstName.Substring(0, InStrRev(FirstName, "\")), "*.jpg").ToList ' All the *.jpg files in the folder
+				MyPhotoNames.AddRange( FileNames )
+				FileNames = Directory.GetFiles(FirstName.Substring(0, InStrRev(FirstName, "\")), "*.tif").ToList ' All the *.tif files in the folder
+				MyPhotoNames.AddRange( FileNames )
+				FileNames = Directory.GetFiles(FirstName.Substring(0, InStrRev(FirstName, "\")), "*.png").ToList ' All the *.png files in the folder
+				MyPhotoNames.AddRange( FileNames )
+				FileNames = Directory.GetFiles(FirstName.Substring(0, InStrRev(FirstName, "\")), "*.bmp").ToList ' All the *.bmp files in the folder
+				MyPhotoNames.AddRange( FileNames )
+				FileNames = Directory.GetFiles(FirstName.Substring(0, InStrRev(FirstName, "\")), "*.gif").ToList ' All the *.gif files in the folder
+				MyPhotoNames.AddRange( FileNames )
+				FileNames = Directory.GetFiles(FirstName.Substring(0, InStrRev(FirstName, "\")), "*.psd").ToList ' All the *.psd files in the folder
+				MyPhotoNames.AddRange( FileNames )
+			End If
+
 			MyPhoto = PhotoShopApp.ActiveDocument
 			MyPhotoPath = MyPhoto.Path
 			MyPhotoName = MyPhoto.Name
@@ -139,20 +176,15 @@ Public Class F_Main
 			MyPhotoPath = vbNullString
 			MyPhotoName = vbNullString
 			OutputFileName = vbNullString
-			MyPhotoNames = SelectImages()                                   ' Get the name of the image to be processed
-		End if
-		'Else
-		'	MyPhoto = Nothing
-		'	MyPhotoPath = GetInputPath										' Get Source folder name
-		'	if MyPhotoPath = vbNullString Then
-		'		AppendToRTB ( "Failed to get name of Source Folder, application aborted" & vbCrLf, Color.Red, BoldFont )
-		'		Exit Sub
-		'	End If
-		'	MyPhotoPath = MyPhotoPath & "\"
-		'	MyPhotoName = vbNullString
-		'	OutputFileName = vbNullString
-		'End if
-		
+			MyPhotoNames = SelectImages()											' Get the names of the images to be processed
+			If Not MyPhotoNames Is Nothing Then
+			Else
+				' User cancelled or error encountered
+				Exit Sub
+			End If
+		End If
+
+		MyPhotoPath = MyPhotoNames(0).Substring(0, InStrRev(MyPhotoNames(0), "\"))  ' Get the path of the first selected image
 		AppendToRTB( "Source folder:" & vbTab & MyPhotoPath & vbCrLf, Color.Black, StndFont )
 '
 '   Select folder in which reformatted photos are to be stored
@@ -228,13 +260,13 @@ Public Class F_Main
 			InFolder = New DirectoryInfo(MyPhotoPath)
 			InFileList = InFolder.GetFiles()
 '
-'   Loops over all files in the input folder and, provided the file is a .jpg, .tif, or .psd  file,
+'   Loops over all files in the input folder and, provided the file is a .jpg, .tif, png, bmp, gif, or .psd  file,
 '   process it as for the initial file
 '
 			AppendToRTB ( "Re-formatting images in source folder '" & MyPhotoPath & "'" & vbCrLf, Color.Black, StndFont )
 			For each InFileInfo In InFileList
 				Select Case LCase( InFileInfo.Name.Substring(InStrRev(InFileInfo.Name, ".")) )
-					Case "jpg", "tif", "png", "psd"
+					Case "jpg", "tif", "png", "bmp", "gif", "psd"
 						If InFileInfo.Name <> MyPhotoName Then
 							Err.Clear
 							PhotoShopApp.Open( MyPhotoPath & InFileInfo.Name )
@@ -502,12 +534,12 @@ Public Class F_Main
 '		F_Main.Start_Click
 '
 '	Returns:-
-'		String Array containg the list of selected images
+'		List of selected images' names
 '		Nothing	- user cancelled or errror encountered
 '
 '   This subroutine selects the images to be processed
 '
-	Function SelectImages() As String()
+	Function SelectImages() As List(Of String)
 
 		Dim openFileDialog1 As New OpenFileDialog()
 
@@ -515,13 +547,13 @@ Public Class F_Main
 		openFileDialog1.Filter = "Images files |*.jpg;*.png;*.tif;*.bmp;|All files (*.*)|*.*"
 		openFileDialog1.FilterIndex = 1
 		openFileDialog1.RestoreDirectory = False
-		openFileDialog1.Title = "Select the images to be processed"
+		openFileDialog1.Title = "Select the Photos to be processed"
 		openFileDialog1.Multiselect = True
 
 		Try 
 			If openFileDialog1.ShowDialog() = System.Windows.Forms.DialogResult.OK Then
-				' Get the path of specified file
-				Return openFileDialog1.FileNames
+				' Get the path of selected files
+				Return openFileDialog1.FileNames.ToList()
 			Else
 				Using New CentreDialog(Me)
 					MsgBox( "User cancelled", vbOK + vbInformation + vbMsgBoxSetForeground, "GGN PhotoShop Utility" )
