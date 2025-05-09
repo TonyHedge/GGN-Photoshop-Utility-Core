@@ -55,6 +55,7 @@ Public Class F_Main
 	Dim MyPhoto As Object
 	Dim MyPhotoPath As String
 	Dim MyPhotoName As String
+	Dim MyPhotoNames As String()
 	Dim PhotoShopApp
 	Dim PhotoShopProcess
 	Dim OutputFileName As String
@@ -123,9 +124,9 @@ Public Class F_Main
 '	If there is an open photo in Photoshop, link to the active document (image)
 '
 		PhotoShopApp.Preferences.RulerUnits = 3								'for PsUnits --> 1 (psCm)
-		PhotoShopApp.DisplayDialogs = 3										'for PsDialogModes --> 3 (psDisplayNoDialogs)
+		PhotoShopApp.DisplayDialogs = 3                                     'for PsDialogModes --> 3 (psDisplayNoDialogs)
 
-		If PhotoshopApp.Documents.Count > 0 Then
+		If PhotoShopApp.Documents.Count > 0 Then
 			MyPhoto = PhotoShopApp.ActiveDocument
 			MyPhotoPath = MyPhoto.Path
 			MyPhotoName = MyPhoto.Name
@@ -135,15 +136,22 @@ Public Class F_Main
 '
 		Else
 			MyPhoto = Nothing
-			MyPhotoPath = GetInputPath										' Get Source folder name
-			if MyPhotoPath = vbNullString Then
-				AppendToRTB ( "Failed to get name of Source Folder, application aborted" & vbCrLf, Color.Red, BoldFont )
-				Exit Sub
-			End If
-			MyPhotoPath = MyPhotoPath & "\"
+			MyPhotoPath = vbNullString
 			MyPhotoName = vbNullString
 			OutputFileName = vbNullString
+			MyPhotoNames = SelectImages()                                   ' Get the name of the image to be processed
 		End if
+		'Else
+		'	MyPhoto = Nothing
+		'	MyPhotoPath = GetInputPath										' Get Source folder name
+		'	if MyPhotoPath = vbNullString Then
+		'		AppendToRTB ( "Failed to get name of Source Folder, application aborted" & vbCrLf, Color.Red, BoldFont )
+		'		Exit Sub
+		'	End If
+		'	MyPhotoPath = MyPhotoPath & "\"
+		'	MyPhotoName = vbNullString
+		'	OutputFileName = vbNullString
+		'End if
 		
 		AppendToRTB( "Source folder:" & vbTab & MyPhotoPath & vbCrLf, Color.Black, StndFont )
 '
@@ -508,7 +516,8 @@ Public Class F_Main
 		openFileDialog1.FilterIndex = 1
 		openFileDialog1.RestoreDirectory = False
 		openFileDialog1.Title = "Select the images to be processed"
-		
+		openFileDialog1.Multiselect = True
+
 		Try 
 			If openFileDialog1.ShowDialog() = System.Windows.Forms.DialogResult.OK Then
 				' Get the path of specified file
