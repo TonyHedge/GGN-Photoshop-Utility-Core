@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35931.197
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "GGN Photoshop Utility Core", "GGN Photoshop Utility Core.vbproj", "{839E519C-50CC-9C11-037D-3FE49AFCCAF2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{839E519C-50CC-9C11-037D-3FE49AFCCAF2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{839E519C-50CC-9C11-037D-3FE49AFCCAF2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{839E519C-50CC-9C11-037D-3FE49AFCCAF2}.Debug|x64.ActiveCfg = Debug|x64
+		{839E519C-50CC-9C11-037D-3FE49AFCCAF2}.Debug|x64.Build.0 = Debug|x64
+		{839E519C-50CC-9C11-037D-3FE49AFCCAF2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{839E519C-50CC-9C11-037D-3FE49AFCCAF2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{839E519C-50CC-9C11-037D-3FE49AFCCAF2}.Release|x64.ActiveCfg = Release|x64
+		{839E519C-50CC-9C11-037D-3FE49AFCCAF2}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {39C69ABF-80E4-4873-A5DD-8823C3B2CA0E}
+	EndGlobalSection
+EndGlobal
