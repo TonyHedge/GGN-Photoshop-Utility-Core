@@ -52,15 +52,14 @@ Public Class F_Main
 '	Global Data
 '
 	Dim BlackWhite As Boolean
-	Dim MyPhoto As Object
+	'Dim MyPhoto As Object
 	Dim MyPhotoPath As String
-	Dim MyPhotoName As String
 	Dim MyPhotoNames As new List(Of String) ()
 	Dim PhotoShopApp
 	Dim PhotoShopProcess
+	Dim PhotoTypes As New List(Of String) From { "*.jpg", "*.tiff", "*.png", "*.bmp", "*.gif", "*.psd" }
 	Dim OutputFileName As String
 	Dim OutputFolderName As String
-	Dim OpenOutputFile
 
 	Dim fontFamily As New FontFamily("Arial")
 	Dim LargeFont As New Font( fontFamily, 12, FontStyle.Underline Or FontStyle.Bold)
@@ -91,6 +90,13 @@ Public Class F_Main
 '	Called when
 '		User clicks on the Start menu
 '
+'	Launches PhotoShop CS2, if not already running
+'	Creates a list of the Photos/Images to be converted to GGN format by
+'		(a) Including in the list just the currently active Photo/Image in PhotoShop
+'		(b) Including in the list all the Photos/Images in the same folder as the Photo/Image currently active in PhotoShop
+'		(c) Prompting the user to select the Photos/Images to be processed
+'	Converts the selected Photos/Images to GGN format
+'
 	Private Sub Start_Click(sender As Object, e As EventArgs) Handles StartToolStripMenuItem.Click
 
 	Dim InFolder As DirectoryInfo
@@ -100,7 +106,7 @@ Public Class F_Main
 	Dim r
 	Dim c As CentreDialog
 '
-'   Create Photoshop object and re-size it's main windows to occupy half the monitor
+'   Launch Photoshop, if not already running, and re-size it's main windows to occupy half the monitor
 '
 		On Error Resume Next														' Handle errors internally
 		Err.Clear
@@ -124,13 +130,13 @@ Public Class F_Main
 		PhotoShopApp.Preferences.RulerUnits = 3										'for PsUnits --> 1 (psCm)
 		PhotoShopApp.DisplayDialogs = 3												'for PsDialogModes --> 3 (psDisplayNoDialogs)
 '
-'	If there are an open photos in Photoshop, ask the user if they are to be processed
+'	If there are an open Photos in Photoshop, ask the user if they are to be processed
 '
 		If PhotoShopApp.Documents.Count > 0 Then
 			Using New CentreDialog(Me)
-				r = MsgBox( "Process just curently opened photo(s) ?" + Environment.NewLine + Environment.NewLine +
-							"Yes - Just process the opened photos" + Environment.NewLine +
-							"No - Process all photos in the folder", vbQuestion + vbYesNoCancel + vbMsgBoxSetForeground, "GGN PhotoShop Automation" )
+				r = MsgBox( "Process all photos in the same folder as the opened photos ?" + Environment.NewLine + Environment.NewLine +
+							"Yes - Process all photos in the same folder" + Environment.NewLine +
+							"No - Process just the opened photos", vbQuestion + vbYesNoCancel + vbMsgBoxSetForeground, "GGN PhotoShop Automation" )
 			End Using
 
 			If r = vbCancel Then
@@ -138,54 +144,43 @@ Public Class F_Main
 '
 '	Just the opened photos are to be processed
 '
-			ElseIf r = vbYes Then
+			ElseIf r = vbNo Then
 				MyPhotoNames.Clear()
 				For i = 1 To PhotoShopApp.Documents.Count
 					MyPhotoNames.Add( PhotoShopApp.Documents(i).FullName )
 				Next
 '
-'	All the photos in the same folder as the opened photos are to be processed
+'	Create a list of all the photos in the same folder as the opened photos
 '
-			ElseIf r = vbNo Then
+			ElseIf r = vbYes Then
 				MyPhotoNames.Clear()
-				Dim FirstName As String = PhotoShopApp.Documents(1).FullName
+				MyPhotoPath = PhotoShopApp.Documents(1).FullName.Substring(0, InStrRev(PhotoShopApp.Documents(1).FullName, "\"))
 				Dim FileNames As List (Of String)
-				FileNames = Directory.GetFiles(FirstName.Substring(0, InStrRev(FirstName, "\")), "*.jpg").ToList ' All the *.jpg files in the folder
-				MyPhotoNames.AddRange( FileNames )
-				FileNames = Directory.GetFiles(FirstName.Substring(0, InStrRev(FirstName, "\")), "*.tif").ToList ' All the *.tif files in the folder
-				MyPhotoNames.AddRange( FileNames )
-				FileNames = Directory.GetFiles(FirstName.Substring(0, InStrRev(FirstName, "\")), "*.png").ToList ' All the *.png files in the folder
-				MyPhotoNames.AddRange( FileNames )
-				FileNames = Directory.GetFiles(FirstName.Substring(0, InStrRev(FirstName, "\")), "*.bmp").ToList ' All the *.bmp files in the folder
-				MyPhotoNames.AddRange( FileNames )
-				FileNames = Directory.GetFiles(FirstName.Substring(0, InStrRev(FirstName, "\")), "*.gif").ToList ' All the *.gif files in the folder
-				MyPhotoNames.AddRange( FileNames )
-				FileNames = Directory.GetFiles(FirstName.Substring(0, InStrRev(FirstName, "\")), "*.psd").ToList ' All the *.psd files in the folder
-				MyPhotoNames.AddRange( FileNames )
+				For each p As String In PhotoTypes									' Loop over all Images types (*.jpg etc)
+					FileNames = Directory.GetFiles( MyPhotoPath, p ).ToList			' All files of a particular type in the source folder
+					MyPhotoNames.AddRange( FileNames )
+				Next
 			End If
-
-			MyPhoto = PhotoShopApp.ActiveDocument
-			MyPhotoPath = MyPhoto.Path
-			MyPhotoName = MyPhoto.Name
-			OutputFileName = MyPhoto.Name
 '
 ' There is no open image, so ask the user to select the images to be processed
 '
 		Else
-			MyPhoto = Nothing
-			MyPhotoPath = vbNullString
-			MyPhotoName = vbNullString
-			OutputFileName = vbNullString
-			MyPhotoNames = SelectImages()											' Get the names of the images to be processed
+			MyPhotoNames = SelectImages()											' Get the names of the images the user has selected
 			If Not MyPhotoNames Is Nothing Then
 			Else
 				' User cancelled or error encountered
 				Exit Sub
 			End If
 		End If
-
+'
+'	Display the source folder name and the list of photos to be processed
+'
 		MyPhotoPath = MyPhotoNames(0).Substring(0, InStrRev(MyPhotoNames(0), "\"))  ' Get the path of the first selected image
 		AppendToRTB( "Source folder:" & vbTab & MyPhotoPath & vbCrLf, Color.Black, StndFont )
+
+		For each p  As String In MyPhotoNames
+			AppendToRTB( vbTab & p.Substring(InStrRev(p, "\")) & vbCrLf, Color.Black, StndFont )
+		Next
 '
 '   Select folder in which reformatted photos are to be stored
 '
@@ -196,7 +191,9 @@ Public Class F_Main
 		End If
 
 		AppendToRTB( "Output folder:" & vbTab & Outputfoldername & vbCrLf, Color.Black, StndFont )
-		
+'
+'	Ask whether photo are to be converted to Black & White
+'
 		Using  New CentreDialog(Me)
 			r =MsgBox( "Convert Photographs to Black and White ?", vbQuestion + vbYesNoCancel + vbMsgBoxSetForeground, "GGN PhotoShop Automation" )
 		End Using
@@ -210,98 +207,23 @@ Public Class F_Main
 			Exit Sub
 		End If
 '
-'	Process the first photograph, converting it to a form suitable for publication
-'	After the photograph has been processed, it is closed (in Photoshop)
-'				
-		OpenOutputFile = True
-		r = vbNo
-		If PhotoShopApp.Documents.Count > 1 Then
-			Using New CentreDialog(Me)
-				r =MsgBox("Process all the other currently opened images ?", vbQuestion + vbYesNoCancel + vbMsgBoxSetForeground, "GGN PhotoShop Utility")
-			End Using
-		End if
-
-		If MyPhotoName <> vbNullString then
-			AppendToRTB ( "Re-formatting images open in Photoshop:-" & vbCrLf, Color.Black, StndFont )
-			AppendToRTB ( vbTab & PhotoShopApp.ActiveDocument.Name & vbCrLf, Color.Black, StndFont )
-			OutputFileName = ProcessPhoto( PhotoShopApp.ActiveDocument, OutputFolderName, MyPhotoName, BlackWhite )
-		End if
+'	Convert all the selected photos to GGN format
 '
-'   Ask if all the rest of the currently opened images are to be similarly processed
-'
-'   Note: Due to the way in which the Documents Collection is maintained by the PhotShop Application
-'   the 'For Loop' below always has to process PhotoShop.Documents(1)
-'
-		If r = vbYes Then                                            ' Yes, so ...
-			OpenOutputFile = False
-				
-			For i = 1 To PhotoShopApp.Documents.Count
-				PhotoShopApp.ActiveDocument = PhotoShopApp.Documents(1)
+		For each p As String In MyPhotoNames
+			Err.Clear
+			PhotoShopApp.Open( p )
+			If Err.Number <> 0 Then
+				AppendToRTB ( vbTab & "Unable to open image " & p & vbCrLf, Color.Red, BoldFont )
+				AppendToRTB ( vbTab & "Error Description: " & Err.Description & vbCrLf, Color.Red, BoldFont )
+			Else
 				AppendToRTB ( vbTab & PhotoShopApp.ActiveDocument.Name & vbCrLf, Color.Black, StndFont )
 				OutputFileName = ProcessPhoto(PhotoShopApp.ActiveDocument, OutputFolderName, PhotoShopApp.ActiveDocument.Name, BlackWhite)
-			Next
-		Else If r = vbCancel then
-			Exit Sub
-		End If
-'
-'   Ask if all images in the input folder are to be similarly processed
-'
-		Using new CentreDialog(Me)
-			r = MsgBox("Process all images in the source folder ?", vbQuestion + vbYesNoCancel, "GGN PhotoShop Automation")
-		End Using
-
-		If r = vbCancel Then
-			Exit Sub
-		Else If r = vbYes Then                                            ' Yes, so ...
-			OpenOutputFile = False
-'
-'   Create a FileSystem object in order to work with folders and files, and then link to the input folder
-'
-			InFolder = New DirectoryInfo(MyPhotoPath)
-			InFileList = InFolder.GetFiles()
-'
-'   Loops over all files in the input folder and, provided the file is a .jpg, .tif, png, bmp, gif, or .psd  file,
-'   process it as for the initial file
-'
-			AppendToRTB ( "Re-formatting images in source folder '" & MyPhotoPath & "'" & vbCrLf, Color.Black, StndFont )
-			For each InFileInfo In InFileList
-				Select Case LCase( InFileInfo.Name.Substring(InStrRev(InFileInfo.Name, ".")) )
-					Case "jpg", "tif", "png", "bmp", "gif", "psd"
-						If InFileInfo.Name <> MyPhotoName Then
-							Err.Clear
-							PhotoShopApp.Open( MyPhotoPath & InFileInfo.Name )
-							If Err.Number <> 0 Then
-								AppendToRTB ( vbTab & "Unable to open image " & InFileInfo.Name & vbCrLf, Color.Red, BoldFont )
-								AppendToRTB ( vbTab & "Error Description: " & Err.Description & vbCrLf, Color.Red, BoldFont )
-							Else
-								AppendToRTB ( vbTab & PhotoShopApp.ActiveDocument.Name & vbCrLf, Color.Black, StndFont )
-								OutputFileName = ProcessPhoto(PhotoShopApp.ActiveDocument, OutputFolderName, PhotoShopApp.ActiveDocument.Name, BlackWhite)
-							End If
-						End If
-					Case Else
-				End Select
-			Next InFileInfo
-		End If
-'
-'   Open the output file if only one image has been processed
-'
-		If OpenOutputFile _
-		Then
-			Err.Clear()
-			PhotoShopApp.Open ( OutputFolderName & "\" & OutputFileName )                  ' Open the single Tiff image produced
-			If Err.Number <> 0 _
-			Then
-				AppendToRTB ( "Unable to open output file '" & OutputFolderName & "\" &  OutputFileName & "' attempt aborted" & vbCrLf, Color.Red, BoldFont )
-				AppendToRTB ( "Error Description: " & Err.Description & vbCrLf,  Color.Red, BoldFont )
 			End If
-		End If
+		Next
 '
 '   Let the user know that the script has completed
 '
 		AppendToRTB ( "All images have been processed" & vbCrLf, Color.Blue, BoldFont )
-
-		MyPhoto = Nothing
-		PhotoShopApp = Nothing
 
 	End Sub
 '
@@ -332,41 +254,41 @@ Public Class F_Main
 		Call Me.Rtb_Log.ResumeLayout()
 
 	End Sub
-'
-'************************************************************************************************************
-'
-'	GetInputPath (Function)
-'
-'	Called by
-'		F_Main.Start_Click
-'
-'	Returns
-'		Null String			- Failed to select a folder
-'		Input Folder Path
-'
-	Private Function GetInputPath() As string
+''
+''************************************************************************************************************
+''
+''	GetInputPath (Function)
+''
+''	Called by
+''		F_Main.Start_Click
+''
+''	Returns
+''		Null String			- Failed to select a folder
+''		Input Folder Path
+''
+'	Private Function GetInputPath() As string
 
-		Dim folderBrowserDialog1 As FolderBrowserDialog
+'		Dim folderBrowserDialog1 As FolderBrowserDialog
 
-		On Error Resume Next													' Handle errors internally
-		folderBrowserDialog1 = New FolderBrowserDialog							' New instance of the File Browser dialobox
+'		On Error Resume Next													' Handle errors internally
+'		folderBrowserDialog1 = New FolderBrowserDialog							' New instance of the File Browser dialobox
 
-		folderBrowserDialog1.RootFolder = Environment.SpecialFolder.Desktop		' Root of the folder tree displayed by the File Browser
-		If Not MyPhoto Is Nothing Then
-			folderBrowserDialog1.SelectedPath = MyPhotoPath						' Initial selected folder (same as active photo path)
-		Else 
-			folderBrowserDialog1.SelectedPath = Environment.ExpandEnvironmentVariables("%SYSTEMDRIVE%")
-		End If
-		folderBrowserDialog1.Description = "Select SOURCE folder"
-		folderBrowserDialog1.UseDescriptionForTitle = True						' Use the description as the title of the File Browser
-		folderBrowserDialog1.ShowNewFolderButton = true							' Allow the browser to create new folders
+'		folderBrowserDialog1.RootFolder = Environment.SpecialFolder.Desktop		' Root of the folder tree displayed by the File Browser
+'		If Not MyPhoto Is Nothing Then
+'			folderBrowserDialog1.SelectedPath = MyPhotoPath						' Initial selected folder (same as active photo path)
+'		Else 
+'			folderBrowserDialog1.SelectedPath = Environment.ExpandEnvironmentVariables("%SYSTEMDRIVE%")
+'		End If
+'		folderBrowserDialog1.Description = "Select SOURCE folder"
+'		folderBrowserDialog1.UseDescriptionForTitle = True						' Use the description as the title of the File Browser
+'		folderBrowserDialog1.ShowNewFolderButton = true							' Allow the browser to create new folders
 
-		If folderBrowserDialog1.ShowDialog() <> System.Windows.Forms.DialogResult.OK Then
-			Return  vbnullstring												' Failed to select an input folder
-		else
-			Return folderBrowserDialog1.SelectedPath							' Output folder Path
-		End if
-	End Function
+'		If folderBrowserDialog1.ShowDialog() <> System.Windows.Forms.DialogResult.OK Then
+'			Return  vbnullstring												' Failed to select an input folder
+'		else
+'			Return folderBrowserDialog1.SelectedPath							' Output folder Path
+'		End if
+'	End Function
 '
 '************************************************************************************************************
 '
@@ -412,7 +334,7 @@ Public Class F_Main
 '		OutputFileName		- File Name of the Processed Photo
 '		BlackWhite			- Whether Balck & White Photo or Coloured Photo
 '
-	Function ProcessPhoto(ByVal MyPhoto, ByVal OutputFolderName, ByVal OutputFileName, ByVal BlackWhite) As String
+	Function ProcessPhoto( ByVal MyPhoto, ByVal OutputFolderName, ByVal OutputFileName, ByVal BlackWhite ) As String
 		
 		Dim i, TiffOptions
 	
