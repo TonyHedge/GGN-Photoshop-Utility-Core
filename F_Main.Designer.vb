@@ -26,6 +26,7 @@ Partial Class F_Main
 		Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(F_Main))
 		MenuStrip1 = New MenuStrip()
 		StartToolStripMenuItem = New ToolStripMenuItem()
+		CloseStripMenuItem = New ToolStripMenuItem()
 		ContextMenuStrip1 = New ContextMenuStrip(components)
 		SS_Main = New StatusStrip()
 		SL_Main = New ToolStripStatusLabel()
@@ -38,11 +39,11 @@ Partial Class F_Main
 		' 
 		MenuStrip1.Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right
 		MenuStrip1.Dock = DockStyle.None
-		MenuStrip1.Items.AddRange(New ToolStripItem() {StartToolStripMenuItem})
-		MenuStrip1.Location = New Point(0, 0)
+		MenuStrip1.Items.AddRange(New ToolStripItem() {StartToolStripMenuItem, CloseStripMenuItem})
+		MenuStrip1.Location = New Point(5, 5)
 		MenuStrip1.Name = "MenuStrip1"
 		MenuStrip1.Padding = New Padding(7, 2, 0, 2)
-		MenuStrip1.Size = New Size(52, 24)
+		MenuStrip1.Size = New Size(100, 24)
 		MenuStrip1.TabIndex = 0
 		MenuStrip1.Text = "MenuStrip1"
 		' 
@@ -52,6 +53,12 @@ Partial Class F_Main
 		StartToolStripMenuItem.Size = New Size(43, 20)
 		StartToolStripMenuItem.Text = "Start"
 		' 
+		' CloseStripMenuItem
+		' 
+		CloseStripMenuItem.Name = "CloseStripMenuItem"
+		CloseStripMenuItem.Size = New Size(48, 20)
+		CloseStripMenuItem.Text = "Close"
+		' 
 		' ContextMenuStrip1
 		' 
 		ContextMenuStrip1.Name = "ContextMenuStrip1"
@@ -60,7 +67,7 @@ Partial Class F_Main
 		' SS_Main
 		' 
 		SS_Main.Items.AddRange(New ToolStripItem() {SL_Main})
-		SS_Main.Location = New Point(0, 404)
+		SS_Main.Location = New Point(0, 506)
 		SS_Main.Name = "SS_Main"
 		SS_Main.Padding = New Padding(1, 0, 16, 0)
 		SS_Main.Size = New Size(718, 22)
@@ -78,7 +85,7 @@ Partial Class F_Main
 		Rtb_Log.Location = New Point(0, 31)
 		Rtb_Log.Margin = New Padding(4, 3, 4, 3)
 		Rtb_Log.Name = "Rtb_Log"
-		Rtb_Log.Size = New Size(717, 365)
+		Rtb_Log.Size = New Size(717, 467)
 		Rtb_Log.TabIndex = 2
 		Rtb_Log.Text = ""
 		' 
@@ -86,7 +93,7 @@ Partial Class F_Main
 		' 
 		AutoScaleDimensions = New SizeF(7F, 15F)
 		AutoScaleMode = AutoScaleMode.Font
-		ClientSize = New Size(718, 426)
+		ClientSize = New Size(718, 528)
 		Controls.Add(Rtb_Log)
 		Controls.Add(SS_Main)
 		Controls.Add(MenuStrip1)
@@ -110,4 +117,5 @@ Partial Class F_Main
 	Friend WithEvents SS_Main As StatusStrip
 	Friend WithEvents SL_Main As ToolStripStatusLabel
 	Friend WithEvents Rtb_Log As RichTextBox
+	Friend WithEvents CloseStripMenuItem As ToolStripMenuItem
 End Class
