@@ -247,7 +247,7 @@ Public Class F_Main
 '
 		OutputFolderName = GetOutputPath
 		If OutputFolderName = vbNullString Then
-			AppendToRTB("Failed to get name of Output Folder, application aborted" & vbCrLf, Color.Red, BoldFont)
+			AppendToRTB("Failed to get name of Output Folder, run aborted" & vbCrLf, Color.Red, BoldFont)
 			Exit Sub
 		End If
 
@@ -336,7 +336,7 @@ Public Class F_Main
 		On Error Resume Next                                                    ' Handle errors internally
 		folderBrowserDialog1 = New FolderBrowserDialog                          ' New instance of the File Browser dialobox
 
-		folderBrowserDialog1.RootFolder = OutputFolderName.Substring(0, InStr(OutputFolderName, "\"))	' Root of the folder tree displayed by the File Browser
+		folderBrowserDialog1.RootFolder = Environment.SpecialFolder.Desktop
 		folderBrowserDialog1.SelectedPath = OutputFolderName                    ' Initial selected folder
 		folderBrowserDialog1.Description = "Select output FOLDER"
 		folderBrowserDialog1.UseDescriptionForTitle = True                      ' Use the description as the title of the File Browser
