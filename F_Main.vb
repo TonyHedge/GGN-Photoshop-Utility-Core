@@ -26,6 +26,7 @@
 '							versions of the Windows operating system
 '	v2.0		15.02.25	Converted to Windows Forms Application
 '	v2.1		10.05.25	Simplified implementation and made the selection of Phots more user friendly
+'	v2.2		12.05.25	Tbd
 '
 Imports System.IO
 Imports System.Text.RegularExpressions
@@ -69,7 +70,7 @@ Public Class F_Main
 	Dim StndFont As New Font(fontFamily, 10, FontStyle.Regular)
 	Dim BoldFont As New Font(fontFamily, 10, FontStyle.Bold)
 
-	Public Const VersionNbr = "2.1"
+	Public Const VersionNbr = "2.2"
 '
 '************************************************************************************************************
 '
