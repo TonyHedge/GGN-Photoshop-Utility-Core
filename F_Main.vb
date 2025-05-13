@@ -73,7 +73,7 @@ Public Class F_Main
 	Dim StndFont As New Font(fontFamily, 10, FontStyle.Regular)
 	Dim BoldFont As New Font(fontFamily, 10, FontStyle.Bold)
 
-	Public Const VersionNbr = "2.2"
+	Public Const VersionNbr = "2.3"
 '
 '************************************************************************************************************
 '
