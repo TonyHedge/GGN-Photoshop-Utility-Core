@@ -31,6 +31,7 @@ Partial Class F_Main
 		SS_Main = New StatusStrip()
 		SL_Main = New ToolStripStatusLabel()
 		Rtb_Log = New RichTextBox()
+		CancelStripMenuItem = New ToolStripMenuItem()
 		MenuStrip1.SuspendLayout()
 		SS_Main.SuspendLayout()
 		SuspendLayout()
@@ -39,11 +40,12 @@ Partial Class F_Main
 		' 
 		MenuStrip1.Anchor = AnchorStyles.Top Or AnchorStyles.Left Or AnchorStyles.Right
 		MenuStrip1.Dock = DockStyle.None
-		MenuStrip1.Items.AddRange(New ToolStripItem() {StartToolStripMenuItem, CloseStripMenuItem})
-		MenuStrip1.Location = New Point(5, 5)
+		MenuStrip1.Items.AddRange(New ToolStripItem() {StartToolStripMenuItem, CancelStripMenuItem, CloseStripMenuItem})
+		MenuStrip1.Location = New Point(0, 4)
+		MenuStrip1.MaximumSize = New Size(700, 0)
 		MenuStrip1.Name = "MenuStrip1"
 		MenuStrip1.Padding = New Padding(7, 2, 0, 2)
-		MenuStrip1.Size = New Size(100, 24)
+		MenuStrip1.Size = New Size(220, 24)
 		MenuStrip1.TabIndex = 0
 		MenuStrip1.Text = "MenuStrip1"
 		' 
@@ -89,6 +91,12 @@ Partial Class F_Main
 		Rtb_Log.TabIndex = 2
 		Rtb_Log.Text = ""
 		' 
+		' CancelStripMenuItem
+		' 
+		CancelStripMenuItem.Name = "CancelStripMenuItem"
+		CancelStripMenuItem.Size = New Size(55, 20)
+		CancelStripMenuItem.Text = "Cancel"
+		' 
 		' F_Main
 		' 
 		AutoScaleDimensions = New SizeF(7F, 15F)
@@ -118,4 +126,5 @@ Partial Class F_Main
 	Friend WithEvents SL_Main As ToolStripStatusLabel
 	Friend WithEvents Rtb_Log As RichTextBox
 	Friend WithEvents CloseStripMenuItem As ToolStripMenuItem
+	Friend WithEvents CancelStripMenuItem As ToolStripMenuItem
 End Class

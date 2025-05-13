@@ -26,8 +26,9 @@
 '							versions of the Windows operating system
 '	v2.0		15.02.25	Converted to Windows Forms Application
 '	v2.1		10.05.25	Simplified implementation and made the selection of Phots more user friendly
-'	v2.2		12.05.25	Tbd
+'	v2.2		12.05.25	Added a Backgroundworker thread to allow the GUI to remain responsive while the photos are being processed
 '
+Imports System.ComponentModel
 Imports System.IO
 Imports System.Text.RegularExpressions
 Imports System.Xml
@@ -51,6 +52,8 @@ Public Class F_Main
 
 	Public Declare Function ShowWindow Lib "user32" (ByVal hWnd As IntPtr, ByVal nCmdShow As Integer) As Boolean
 	Public Const SW_RESTORE As Integer = 9
+
+	Dim Worker As BackgroundWorker = New BackgroundWorker
 '
 '	Global Data
 '
@@ -86,9 +89,11 @@ Public Class F_Main
 		Me.Location = New Point(5, 5)
 
 		#if DEBUG
-			Me.Text = Me.Text + " - Debug"
-		#end if
-
+				Me.Text = Me.Text + " - Debug"
+		#End If
+'
+'	Read the persistent data from the Settings.xml file
+'
 		Try
 			Persistent = File.ReadAllLines($"{Application.StartupPath}\\Settings.xml").ToList()
 
@@ -100,9 +105,19 @@ Public Class F_Main
 			MyPhotoPath = "C:\"
 			OutputFolderName = "C:\"
 		End Try
+'
+'	Set the BackgroundWorker
+'	This will do the time/resource consuming processing of the Photos in the background
+'	Thus allowing the GUI to remain responsive to the user
+'
+		Worker.WorkerReportsProgress = True                                     ' Allow the worker thread to report progress
+		Worker.WorkerSupportsCancellation = True                                ' Allow the worker thread to be cancelled
+
+		AddHandler Worker.DoWork, AddressOf Worker_DoWork                       ' Event procedure called when the worker thread is started
+		AddHandler Worker.RunWorkerCompleted, AddressOf Worker_Completed        ' Event procedure called when the worker thread completes
+		AddHandler Worker.ProgressChanged, AddressOf Worker_ProgressChanged     ' Event procedure called when the worker thread reports progress
 
 	End Sub
-
 '
 '************************************************************************************************************
 '
@@ -120,14 +135,60 @@ Public Class F_Main
 			End Try
 			PhotoShopProcess = Nothing
 		End If
-
+'
+'	Write the persistent data to the Settings.xml file
+'
 		Persistent.Clear()
-		Persistent.Add( "<?xml version=""1.0"" encoding=""UTF-8""?>" )
-		Persistent.Add( $"<Data SourceFolder=""{MyPhotoPath}"" OutputFolder=""{OutputFolderName}\""></Data>" )
+		Persistent.Add("<?xml version=""1.0"" encoding=""UTF-8""?>")
+		Persistent.Add($"<Data SourceFolder=""{MyPhotoPath}"" OutputFolder=""{OutputFolderName}\""></Data>")
+
 		File.WriteAllLines($"{Application.StartupPath}\\Settings.xml", Persistent)
+	End Sub
+'
+'************************************************************************************************************
+'
+'	AppendToRTB (Subroutine)
+'
+'	Called by
+'		F_Main.Load
+'		F_Main.Start_Click
+'		F_Main.ResizePhotoshopWindow
+'		Worker_Completed
+'		Worker_ProgressChanged
+'
+'	Parameters
+'		inText		- Text to be appended
+'		inColour	- Foreground Text Colour
+'		inFont		- Font
+'
+	Public Sub AppendToRTB(inText As String, inColour As Drawing.Color, inFont As Font)
+
+		Call Me.Rtb_Log.SuspendLayout()
+		Me.Rtb_Log.SelectionStart = Me.Rtb_Log.TextLength
+		Me.Rtb_Log.SelectionLength = 0
+		Me.Rtb_Log.SelectionFont = inFont
+		Me.Rtb_Log.SelectionColor = inColour
+		Me.Rtb_Log.SelectedText = inText
+		Call Me.Rtb_Log.ResumeLayout()
+
+		Me.Rtb_Log.ScrollToCaret
 
 	End Sub
+'
+'************************************************************************************************************
+'
+'	CancelStripMenuItem (Event Procedure)
+'
+'	Called when
+'		The Cancel Menu item is clicked
+'
+'	Cancels the BackgroundWorker thread
+'
+	Private Sub CancelStripMenuItem_Click(sender As Object, e As EventArgs) Handles CancelStripMenuItem.Click
 
+		Worker.CancelAsync()									' Cancel the processing of Photo
+
+	End Sub
 '
 '************************************************************************************************************
 '
@@ -143,181 +204,37 @@ Public Class F_Main
 		Close                                                    ' Close the application
 
 	End Sub
-
 '
 '************************************************************************************************************
 '
-'	Start_Click (Event Procedure)
+'	ConvertPhotos (Subroutine)
 '
-'	Called when
-'		User clicks on the Start menu
+'	Called by
+'		F_Main.Start_Click
 '
-'	Launches PhotoShop CS2, if not already running
-'	Creates a list of the Photos/Images to be converted to GGN format by
-'		(a) Including in the list just the currently active Photo/Image in PhotoShop
-'		(b) Including in the list all the Photos/Images in the same folder as the Photo/Image currently active in PhotoShop
-'		(c) Prompting the user to select the Photos/Images to be processed
-'	Converts the selected Photos/Images to GGN format
+'	Converts all the selected photos to GGN format in a 'Backgroundworker' thread
 '
-	Private Sub Start_Click(sender As Object, e As EventArgs) Handles StartToolStripMenuItem.Click
-
-		Dim InFolder As DirectoryInfo
-		Dim InFileList As FileInfo()
-		Dim InFileInfo As FileInfo
-		Dim i As Integer
-		Dim r
-		Dim c As CentreDialog
-'
-'   Launch Photoshop, if not already running, and re-size it's main windows to occupy half the monitor
-'
-		On Error Resume Next                                                        ' Handle errors internally
-		Err.Clear
-
-		Me.SL_Main.Text = "Launching Photoshop"
-		Me.SS_Main.Update
-		PhotoShopApp = CreateObject("Photoshop.Application")
-		If Err.Number <> 0 Then
-			AppendToRTB("Cannot launch PhotoShop, application aborted" & vbCrLf, Color.Red, BoldFont)
-			AppendToRTB("Error Description: " & Err.Description & vbCrLf, Color.Red, BoldFont)
-			Exit Sub
-		End If
-		Me.SL_Main.Text = vbNullString
-		Me.SS_Main.Update
-		AppendToRTB("Photoshop launched" & vbCrLf, Color.Black, StndFont)
-
-		PhotoShopProcess = Process.GetProcessesByName("Photoshop")                  ' Array containing the Photoshop Process
-
-		Call ResizePhotoshopWindow(PhotoShopProcess(0).MainWindowHandle)            ' Resize the Photoshop window to occupy the right-hand side of the monitor
-
-		PhotoShopApp.Preferences.RulerUnits = 3                                     'for PsUnits --> 1 (psCm)
-		PhotoShopApp.DisplayDialogs = 3                                             'for PsDialogModes --> 3 (psDisplayNoDialogs)
-'
-'	If there are an open Photos in Photoshop, ask the user if they are to be processed
-'
-		If PhotoShopApp.Documents.Count > 0 Then
-			Using New CentreDialog(Me)
-				r = MsgBox("Process all photos in the same folder as the opened photos ?" + Environment.NewLine + Environment.NewLine +
-							"Yes - Process all photos in the same folder" + Environment.NewLine +
-							"No - Process just the opened photos", vbQuestion + vbYesNoCancel + vbMsgBoxSetForeground, "GGN PhotoShop Automation")
-			End Using
-
-			If r = vbCancel Then
-				Exit Sub
-'
-'	Just the opened photos are to be processed
-'
-			ElseIf r = vbNo Then
-				MyPhotoNames.Clear()
-				For i = 1 To PhotoShopApp.Documents.Count
-					MyPhotoNames.Add(PhotoShopApp.Documents(i).FullName)
-				Next
-'
-'	Create a list of all the photos in the same folder as the opened photos
-'
-			ElseIf r = vbYes Then
-				MyPhotoNames.Clear()
-				MyPhotoPath = PhotoShopApp.Documents(1).FullName.Substring(0, InStrRev(PhotoShopApp.Documents(1).FullName, "\"))
-				Dim FileNames As List(Of String)
-				For Each p As String In PhotoTypes                                  ' Loop over all Images types (*.jpg etc)
-					FileNames = Directory.GetFiles(MyPhotoPath, p).ToList           ' All files of a particular type in the source folder
-					MyPhotoNames.AddRange(FileNames)
-				Next
-			End If
-'
-' There is no open image, so ask the user to select the images to be processed
-'
-		Else
-			MyPhotoNames = SelectImages()                                           ' Get the names of the images the user has selected
-			If Not MyPhotoNames Is Nothing Then
-			Else
-				' User cancelled or error encountered
-				Exit Sub
-			End If
-		End If
-'
-'	Display the source folder name and the list of photos to be processed
-'
-		MyPhotoPath = MyPhotoNames(0).Substring(0, InStrRev(MyPhotoNames(0), "\"))  ' Get the path of the first selected image
-		AppendToRTB("Source folder:" & vbTab & MyPhotoPath & vbCrLf, Color.Black, StndFont)
+	Function ConvertPhotos(ByVal worker As BackgroundWorker, ByVal e As DoWorkEventArgs) As Long
 
 		For Each p As String In MyPhotoNames
-			AppendToRTB(vbTab & p.Substring(InStrRev(p, "\")) & vbCrLf, Color.Black, StndFont)
-		Next
-'
-'   Select folder in which reformatted photos are to be stored
-'
-		OutputFolderName = GetOutputPath
-		If OutputFolderName = vbNullString Then
-			AppendToRTB("Failed to get name of Output Folder, run aborted" & vbCrLf, Color.Red, BoldFont)
-			Exit Sub
-		End If
+			If worker.CancellationPending Then
+				worker.ReportProgress(1, "Processing cancelled by user" & vbCrLf)							' Report cancellation to the main thread
+				Return 1
+			End If
 
-		AppendToRTB("Output folder:" & vbTab & OutputFolderName & vbCrLf, Color.Black, StndFont)
-'
-'	Ask whether photo are to be converted to Black & White
-'
-		Using New CentreDialog(Me)
-			r = MsgBox("Convert Photographs to Black and White ?", vbQuestion + vbYesNoCancel + vbMsgBoxSetForeground, "GGN PhotoShop Automation")
-		End Using
-
-		If r = vbYes
-			' It is to be a B&W photo so ...
-			BlackWhite = True
-		ElseIf r = vbNo
-			BlackWhite = False
-		Else
-			Exit Sub
-		End If
-'
-'	Convert all the selected photos to GGN format
-'
-	For Each p As String In MyPhotoNames
 			Err.Clear
 			PhotoShopApp.Open(p)
 			If Err.Number <> 0 Then
-				AppendToRTB(vbTab & "Unable to open image " & p & vbCrLf, Color.Red, BoldFont)
-				AppendToRTB(vbTab & "Error Description: " & Err.Description & vbCrLf, Color.Red, BoldFont)
+				worker.ReportProgress(0, "Unable to open image " & p & vbCrLf & Err.Description & vbCrLf)   ' Report error to the main thread
 			Else
-				AppendToRTB(vbTab & PhotoShopApp.ActiveDocument.Name & vbCrLf, Color.Black, StndFont)
-				OutputFileName = ProcessPhoto(PhotoShopApp.ActiveDocument, OutputFolderName, PhotoShopApp.ActiveDocument.Name, BlackWhite)
+				OutputFileName = ProcessPhoto(PhotoShopApp.ActiveDocument, OutputFolderName, PhotoShopApp.ActiveDocument.Name, BlackWhite, worker)
+				worker.ReportProgress(0, vbTab & OutputFileName & vbCrLf)                                   ' Report progress to the main thread
 			End If
 		Next
-'
-'   Let the user know that the script has completed
-'
-		AppendToRTB("All images have been processed" & vbCrLf, Color.Blue, BoldFont)
 
-	End Sub
-'
-'************************************************************************************************************
-'
-'	AppendToRTB (Subroutine)
-'
-'	Called by
-'		F_Main.ProcessPhoto
-'		F_Main.Start_Click
-'		F_Main.ResizePhotoshopWindow
-'
-'	Parameters
-'		inText		- Text to be appended
-'		inColour	- Foreground Text Colour
-'		inFont		- Font
-'
-	Public Sub AppendToRTB(inText As String,
-							inColour As Drawing.Color,
-							inFont As Font)
+		Return 0
 
-		Call Me.Rtb_Log.SuspendLayout()
-		Me.Rtb_Log.SelectionStart = Me.Rtb_Log.TextLength
-		Me.Rtb_Log.SelectionLength = 0
-		Me.Rtb_Log.SelectionFont = inFont
-		Me.Rtb_Log.SelectionColor = inColour
-		Me.Rtb_Log.SelectedText = inText
-		Call Me.Rtb_Log.ResumeLayout()
-
-		Me.Rtb_Log.ScrollToCaret
-
-	End Sub
+	End Function
 '
 '************************************************************************************************************
 '
@@ -349,42 +266,47 @@ Public Class F_Main
 			Return folderBrowserDialog1.SelectedPath                            ' Output folder Path
 		End If
 	End Function
-'
-'************************************************************************************************************
-'
-'	ProcessPhoto (Function)
-'
-'	Called by
-'		F_Main.Start_Click
-'
-'	Parameters:-
-'		MyPhoto				- Photograph to be processed
-'		OutputFolderName	- Name of the Output Folder
-'		OutputFileName		- File Name of the Processed Photo
-'		BlackWhite			- Whether Balck & White Photo or Coloured Photo
-'
-	Function ProcessPhoto(ByVal MyPhoto, ByVal OutputFolderName, ByVal OutputFileName, ByVal BlackWhite) As String
+	'
+	'************************************************************************************************************
+	'
+	'	ProcessPhoto (Function)
+	'
+	'	Called by
+	'		F_Main.Start_Click
+	'
+	'	Parameters:-
+	'		MyPhoto				- Photograph to be processed
+	'		OutputFolderName	- Name of the Output Folder
+	'		OutputFileName		- File Name of the Processed Photo
+	'		BlackWhite			- Whether Balck & White Photo or Coloured Photo
+	'		worker				- The Backgroundworker under which this function is running
+	'
+	'	This function is called by the BackgroundWorker thread to process the selected photos
+	'	It must report errors/progress to the main thread by calling the Worker.ProgressChanged method
+	'	as it cannot update the GUI directly
+	'
+	Function ProcessPhoto(ByVal MyPhoto, ByVal OutputFolderName, ByVal OutputFileName, ByVal BlackWhite, ByVal worker) As String
 
 		Dim i, TiffOptions
 
 		On Error Resume Next
-'
-'   Make sure file extension of output filename is ".tif"
-'
+		'
+		'   Make sure file extension of output filename is ".tif"
+		'
 		OutputFileName = OutputFileName.Substring(0, InStrRev(OutputFileName, ".")) & "tif"
-'
-'   Now configure the photo with the required parameters
-'
+		'
+		'   Now configure the photo with the required parameters
+		'
 		MyPhoto.Flatten                                     ' Flatten the layers in the image
 		MyPhoto.ColorProfileType = 1                        ' 1 = psNo; Turn ICC/sRGB off
 		MyPhoto.ResizeImage(, , 300, 1)                 ' 1 = psNoResampling; Resize image to 300 ppi without ReSampling
-'
-' It is to be a B&W photo so ...
-'
+		'
+		' It is to be a B&W photo so ...
+		'
 		If BlackWhite Then
 			If MyPhoto.Width > 9 Then
 				MyPhoto.ResizeImage(9 * 25 / 6, , , 5)      ' (CS2) Resize images to 9cm wide using BiCubicSharper resampling (5 = psBicubicSharper)
-'				 MyPhoto.ResizeImage 9, , , 5				' (CS3) Resize images to 9cm wide using BiCubicSharper resampling (5 = psBicubicSharper)
+				'				 MyPhoto.ResizeImage 9, , , 5				' (CS3) Resize images to 9cm wide using BiCubicSharper resampling (5 = psBicubicSharper)
 			End If
 
 			MyPhoto.ChangeMode(4)                           ' 4 = psConvertToLab; convert colour profile to Lab mode
@@ -393,14 +315,14 @@ Public Class F_Main
 			MyPhoto.Channels("Alpha 2").Delete              ' Delete the "Alpha 2" channel leaving only the "Alpha 1" channel
 
 			MyPhoto.ChangeMode(1)                           ' 1 = psConvertToGrayscale; convert colour profile to Grayscale
-'
-'   Suffix the filename of a B&W image with "_BW"
-'
+			'
+			'   Suffix the filename of a B&W image with "_BW"
+			'
 			i = InStrRev(OutputFileName, ".")               ' Position (if any) of "." in the Output File Name
 			OutputFileName = OutputFileName.Substring(OutputFileName.Length - i) & "_BW" & OutputFileName.Substring(i + 1, OutputFileName.Length - i)
-'
-'	It's a colour photo so ...
-'	
+			'
+			'	It's a colour photo so ...
+			'	
 		Else
 			If MyPhoto.Width > 19 Then
 				MyPhoto.ResizeImage(19 * 25 / 6, , , 5)    ' (CS2) Resize images to 16cm wide using BiCubicSharper resampling (5 = psBicubicSharper)
@@ -409,27 +331,29 @@ Public Class F_Main
 
 			MyPhoto.ChangeMode(3)                          ' 3 = psConvertToCMYK; convert colour profile to CMYK
 		End If
-'
-'   Save the newly configured Tiff image
-'
+		'
+		'   Save the newly configured Tiff image
+		'
 		Err.Clear
 		TiffOptions = CreateObject("Photoshop.TIFFSaveOptions")
 		If Err.Number <> 0 Then
-			AppendToRTB("Cannot save output file '" & OutputFolderName & "\" & OutputFileName & "' as a TIFF, attempt aborted" & vbCrLf, Color.Red, BoldFont)
-			AppendToRTB("Error Description: " & Err.Description & vbCrLf, Color.Red, BoldFont)
+			worker.Worker_ProgressChanged(1, $"Cannot save output file '{OutputFolderName}\{OutputFileName} as a TIFF" & vbCrLf & Err.Description & vbCrLf)
+			'AppendToRTB("Cannot save output file '" & OutputFolderName & "\" & OutputFileName & "' as a TIFF, attempt aborted" & vbCrLf, Color.Red, BoldFont)
+			'AppendToRTB("Error Description: " & Err.Description & vbCrLf, Color.Red, BoldFont)
 		Else
 			TiffOptions.ImageCompression = 2                ' 2 = psTiffLZW; LZW encoding (compression)
 
 			Err.Clear
 			MyPhoto.SaveAs(OutputFolderName & "\" & OutputFileName, TiffOptions, True, 2)
 			If Err.Number <> 0 Then
-				AppendToRTB("Cannot save output file '" & OutputFolderName & "\" & OutputFileName & "' as a TIFF, attempt aborted" & vbCrLf, Color.Red, BoldFont)
-				AppendToRTB("Error Description: " & Err.Description & vbCrLf, Color.Red, BoldFont)
+				worker.Worker_ProgressChanged(1, $"Cannot save output file '{OutputFolderName}\{OutputFileName}" & vbCrLf & Err.Description & vbCrLf)
+				'AppendToRTB("Cannot save output file '" & OutputFolderName & "\" & OutputFileName & "' as a TIFF, attempt aborted" & vbCrLf, Color.Red, BoldFont)
+				'AppendToRTB("Error Description: " & Err.Description & vbCrLf, Color.Red, BoldFont)
 			End If
 		End If
-'
-'   Now close the source image without modifying it
-'
+		'
+		'   Now close the source image without modifying it
+		'
 		MyPhoto.Close(2)                                    ' 2 = psDoNotSaveChanges; Close without saving changes to Jpeg image
 
 		TiffOptions = Nothing
@@ -437,27 +361,27 @@ Public Class F_Main
 		Return OutputFileName
 
 	End Function
-'
-'************************************************************************************************************
-'
-'	ResizePhotoshopWindow (Subroutine)
-'
-'	Called by
-'		F_Main.Start_Click
-'
-'	Parameters:-
-'		WindowHandle				- Handle of Photoshop's Main Window
-'
-'   This subroutine controls the size and position of the InDesign window. The InDesign window is always displayed underlapping
-'	the GGN Utilty window, but may either be displayed as encountered when the GGN Utility is first run or in the bottom right
-'	hand half of the screen
-'
+	'
+	'************************************************************************************************************
+	'
+	'	ResizePhotoshopWindow (Subroutine)
+	'
+	'	Called by
+	'		F_Main.Start_Click
+	'
+	'	Parameters:-
+	'		WindowHandle				- Handle of Photoshop's Main Window
+	'
+	'   This subroutine controls the size and position of the InDesign window. The InDesign window is always displayed underlapping
+	'	the GGN Utilty window, but may either be displayed as encountered when the GGN Utility is first run or in the bottom right
+	'	hand half of the screen
+	'
 	Sub ResizePhotoshopWindow(ByVal WindowHandle As IntPtr)
 
 		Dim b As Boolean
-'
-'	Make the Photoshop window occupy the right-hand side of the monitor
-'
+		'
+		'	Make the Photoshop window occupy the right-hand side of the monitor
+		'
 		b = SetWindowPos(WindowHandle, 1, _                                  ' Bottom of the Z-order
 							Screen.PrimaryScreen.WorkingArea.Width / 2,         ' Left = Halfway across the Monitor
 							1,                                                  ' Top = Top of Monitor
@@ -476,20 +400,20 @@ Public Class F_Main
 		End If
 
 	End Sub
-'
-'************************************************************************************************************
-'
-'	Select Images (Subroutine)
-'
-'	Called by
-'		F_Main.Start_Click
-'
-'	Returns:-
-'		List of selected images' names
-'		Nothing	- user cancelled or errror encountered
-'
-'   This subroutine selects the images to be processed
-'
+	'
+	'************************************************************************************************************
+	'
+	'	Select Images (Subroutine)
+	'
+	'	Called by
+	'		F_Main.Start_Click
+	'
+	'	Returns:-
+	'		List of selected images' names
+	'		Nothing	- user cancelled or errror encountered
+	'
+	'   This subroutine selects the images to be processed
+	'
 	Function SelectImages() As List(Of String)
 
 		Dim openFileDialog1 As New OpenFileDialog()
@@ -520,5 +444,188 @@ Public Class F_Main
 		End Try
 
 	End Function
+	'
+	'************************************************************************************************************
+	'
+	'	Start_Click (Event Procedure)
+	'
+	'	Called when
+	'		User clicks on the Start menu
+	'
+	'	Launches PhotoShop CS2, if not already running
+	'	Creates a list of the Photos/Images to be converted to GGN format by
+	'		(a) Including in the list just the currently active Photo/Image in PhotoShop
+	'		(b) Including in the list all the Photos/Images in the same folder as the Photo/Image currently active in PhotoShop
+	'		(c) Prompting the user to select the Photos/Images to be processed
+	'	Converts the selected Photos/Images to GGN format
+	'
+	Private Sub Start_Click(sender As Object, e As EventArgs) Handles StartToolStripMenuItem.Click
 
+		Dim InFolder As DirectoryInfo
+		Dim InFileList As FileInfo()
+		Dim InFileInfo As FileInfo
+		Dim i As Integer
+		Dim r
+		Dim c As CentreDialog
+		'
+		'   Launch Photoshop, if not already running, and re-size it's main windows to occupy half the monitor
+		'
+		On Error Resume Next                                                        ' Handle errors internally
+		Err.Clear
+
+		Me.SL_Main.Text = "Launching Photoshop"
+		Me.SS_Main.Update
+		PhotoShopApp = CreateObject("Photoshop.Application")
+		If Err.Number <> 0 Then
+			AppendToRTB("Cannot launch PhotoShop, application aborted" & vbCrLf, Color.Red, BoldFont)
+			AppendToRTB("Error Description: " & Err.Description & vbCrLf, Color.Red, BoldFont)
+			Exit Sub
+		End If
+		Me.SL_Main.Text = vbNullString
+		Me.SS_Main.Update
+		AppendToRTB("Photoshop launched" & vbCrLf, Color.Black, StndFont)
+
+		PhotoShopProcess = Process.GetProcessesByName("Photoshop")                  ' Array containing the Photoshop Process
+
+		Call ResizePhotoshopWindow(PhotoShopProcess(0).MainWindowHandle)            ' Resize the Photoshop window to occupy the right-hand side of the monitor
+
+		PhotoShopApp.Preferences.RulerUnits = 3                                     'for PsUnits --> 1 (psCm)
+		PhotoShopApp.DisplayDialogs = 3                                             'for PsDialogModes --> 3 (psDisplayNoDialogs)
+		'
+		'	If there are an open Photos in Photoshop, ask the user if they are to be processed
+		'
+		If PhotoShopApp.Documents.Count > 0 Then
+			Using New CentreDialog(Me)
+				r = MsgBox("Process all photos in the same folder as the opened photos ?" + Environment.NewLine + Environment.NewLine +
+							"Yes - Process all photos in the same folder" + Environment.NewLine +
+							"No - Process just the opened photos", vbQuestion + vbYesNoCancel + vbMsgBoxSetForeground, "GGN PhotoShop Automation")
+			End Using
+
+			If r = vbCancel Then
+				Exit Sub
+				'
+				'	Just the opened photos are to be processed
+				'
+			ElseIf r = vbNo Then
+				MyPhotoNames.Clear()
+				For i = 1 To PhotoShopApp.Documents.Count
+					MyPhotoNames.Add(PhotoShopApp.Documents(i).FullName)
+				Next
+				'
+				'	Create a list of all the photos in the same folder as the opened photos
+				'
+			ElseIf r = vbYes Then
+				MyPhotoNames.Clear()
+				MyPhotoPath = PhotoShopApp.Documents(1).FullName.Substring(0, InStrRev(PhotoShopApp.Documents(1).FullName, "\"))
+				Dim FileNames As List(Of String)
+				For Each p As String In PhotoTypes                                  ' Loop over all Images types (*.jpg etc)
+					FileNames = Directory.GetFiles(MyPhotoPath, p).ToList           ' All files of a particular type in the source folder
+					MyPhotoNames.AddRange(FileNames)
+				Next
+			End If
+			'
+			' There is no open image, so ask the user to select the images to be processed
+			'
+		Else
+			MyPhotoNames = SelectImages()                                           ' Get the names of the images the user has selected
+			If Not MyPhotoNames Is Nothing Then
+			Else
+				' User cancelled or error encountered
+				Exit Sub
+			End If
+		End If
+		'
+		'	Display the source folder name and the list of photos to be processed
+		'
+		MyPhotoPath = MyPhotoNames(0).Substring(0, InStrRev(MyPhotoNames(0), "\"))  ' Get the path of the first selected image
+		AppendToRTB("Source folder:" & vbTab & MyPhotoPath & vbCrLf, Color.Black, StndFont)
+
+		For Each p As String In MyPhotoNames
+			AppendToRTB(vbTab & p.Substring(InStrRev(p, "\")) & vbCrLf, Color.Black, StndFont)
+		Next
+		'
+		'   Select folder in which reformatted photos are to be stored
+		'
+		OutputFolderName = GetOutputPath
+		If OutputFolderName = vbNullString Then
+			AppendToRTB("Failed to get name of Output Folder, run aborted" & vbCrLf, Color.Red, BoldFont)
+			Exit Sub
+		End If
+
+		AppendToRTB("Output folder:" & vbTab & OutputFolderName & vbCrLf, Color.Black, StndFont)
+		'
+		'	Ask whether photo are to be converted to Black & White
+		'
+		Using New CentreDialog(Me)
+			r = MsgBox("Convert Photographs to Black and White ?", vbQuestion + vbYesNoCancel + vbMsgBoxSetForeground, "GGN PhotoShop Automation")
+		End Using
+
+		If r = vbYes
+			' It is to be a B&W photo so ...
+			BlackWhite = True
+		ElseIf r = vbNo
+			BlackWhite = False
+		Else
+			Exit Sub
+		End If
+		'
+		'	Convert all the selected photos to GGN format in a 'Backgroundworker' thread
+		'	Thus allowing the GUI to remain responsive to the user
+		'	Control is returned to this thread, the GUI thread, immediately after the BackgroundWorker is run
+		'	All further progress and error reports are made through event reported by the Background Worker
+		'
+		Worker.RunWorkerAsync()                                                     ' Start the BackgroundWorker thread
+
+	End Sub
+	'
+	'************************************************************************************************************
+	'
+	'	Worker_DoWork (Event Procedure)
+	'
+	'	Called when
+	'		The BackgroundWorker thread is started
+	'
+	'	This event procedure runs on the BackgroundWorker thread and does the time/resource consuming processing
+	'	Loops over all the selected photos and processes them
+	'
+	Private Sub Worker_DoWork(ByVal sender As Object, ByVal e As DoWorkEventArgs)
+
+		Dim worker As BackgroundWorker = CType(sender, BackgroundWorker)        ' Get the BackgroundWorker object that raised this event
+
+		e.Result = ConvertPhotos(worker, e)                                   ' Convert all the selected photos to GGN format
+
+	End Sub
+	'
+	'************************************************************************************************************
+	'
+	'	Worker_ProgressChanged (Event Procedure)
+	'
+	'	Called when
+	'		The BackgroundWorker thread reports a change
+	'
+	'	This event procedure runs on the main GUI thread and Reports errors/progress to the user
+	'
+	Private Sub Worker_ProgressChanged(sender As Object, e As System.ComponentModel.ProgressChangedEventArgs)
+
+		Dim FontColour As Color = Color.Black
+
+		If e.ProgressPercentage <> 0 Then FontColour = Color.Red            ' It's an error being reported
+		AppendToRTB(e.UserState.ToString(), FontColour, StndFont)           ' Report errors/progress
+
+	End Sub
+'
+'************************************************************************************************************
+'
+'	Worker_Completed (Event Procedure)
+'
+'	Called when
+'		The BackgroundWorker thread completes
+'
+'	This event procedure runs on the main GUI thread and Reports that the Backgroundworkwr has completed
+'
+	Private Sub Worker_Completed(sender As Object, e As System.ComponentModel.RunWorkerCompletedEventArgs)
+
+		AppendToRTB("All images have been processed" & vbCrLf, Color.Blue, BoldFont)
+
+	End Sub
 End Class
