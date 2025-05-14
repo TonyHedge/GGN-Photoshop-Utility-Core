@@ -60,7 +60,7 @@ Public Class F_Main
 	Dim BlackWhite As Boolean
 	Dim MyPhotoPath As String
 	Dim MyPhotoNames As New List(Of String)()
-	Dim Persistent As List(Of String)
+	Dim Persistent As New List(Of String)()
 	Dim PhotoShopApp
 	Dim PhotoShopProcess
 	Dim PhotoTypes As New List(Of String) From {"*.jpg", "*.tiff", "*.png", "*.bmp", "*.gif", "*.psd"}
@@ -95,6 +95,7 @@ Public Class F_Main
 '	Read the persistent data from the Settings.xml file
 '
 		Try
+			Persistent.Clear()
 			Persistent = File.ReadAllLines($"{Application.StartupPath}\\Settings.xml").ToList()
 
 			RegexMatches = Regex.Matches(Persistent(1), "=""(.*?)""")
@@ -201,7 +202,7 @@ Public Class F_Main
 '
 	Private Sub Close_Click(sender As Object, e As EventArgs) Handles CloseStripMenuItem.Click
 
-		Close                                                    ' Close the application
+		Close()                                                    ' Close the application
 
 	End Sub
 '
@@ -431,15 +432,15 @@ Public Class F_Main
 				' Get the path of selected files
 				Return openFileDialog1.FileNames.ToList()
 			Else
-				Using New CentreDialog(Me)
-					MsgBox("User cancelled", vbOK + vbInformation + vbMsgBoxSetForeground, "GGN PhotoShop Utility")
-				End Using
+				'Using New CentreDialog(Me)
+				'	MsgBox("User cancelled", vbOKOnly + vbInformation + vbMsgBoxSetForeground, "GGN PhotoShop Utility")
+				'End Using
 				Return Nothing
 			End If
 		Catch ex As Exception
 			Using New CentreDialog(Me)
 				MsgBox("Unable to display the File Open dialogbox" + Environment.NewLine + Environment.NewLine + ex.Message,
-							vbOK + vbCritical + vbMsgBoxSetForeground, "GGN PhotoShop Utility")
+							vbOKOnly + vbCritical + vbMsgBoxSetForeground, "GGN PhotoShop Utility")
 			End Using
 			Return Nothing
 		End Try
@@ -534,6 +535,7 @@ Public Class F_Main
 			If Not MyPhotoNames Is Nothing Then
 			Else
 				' User cancelled or error encountered
+				Me.StartToolStripMenuItem.Enabled = True
 				Exit Sub
 			End If
 		End If
@@ -552,6 +554,7 @@ Public Class F_Main
 		OutputFolderName = GetOutputPath
 		If OutputFolderName = vbNullString Then
 			AppendToRTB("Failed to get name of Output Folder, run aborted" & vbCrLf, Color.Red, BoldFont)
+			Me.StartToolStripMenuItem.Enabled = True
 			Exit Sub
 		End If
 
@@ -569,6 +572,7 @@ Public Class F_Main
 		ElseIf r = vbNo
 			BlackWhite = False
 		Else
+			Me.StartToolStripMenuItem.Enabled = True
 			Exit Sub
 		End If
 '
