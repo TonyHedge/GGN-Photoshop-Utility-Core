@@ -26,12 +26,12 @@ Partial Class F_Main
 		Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(F_Main))
 		MenuStrip1 = New MenuStrip()
 		StartToolStripMenuItem = New ToolStripMenuItem()
+		CancelStripMenuItem = New ToolStripMenuItem()
 		CloseStripMenuItem = New ToolStripMenuItem()
 		ContextMenuStrip1 = New ContextMenuStrip(components)
 		SS_Main = New StatusStrip()
 		SL_Main = New ToolStripStatusLabel()
 		Rtb_Log = New RichTextBox()
-		CancelStripMenuItem = New ToolStripMenuItem()
 		MenuStrip1.SuspendLayout()
 		SS_Main.SuspendLayout()
 		SuspendLayout()
@@ -45,7 +45,7 @@ Partial Class F_Main
 		MenuStrip1.MaximumSize = New Size(700, 0)
 		MenuStrip1.Name = "MenuStrip1"
 		MenuStrip1.Padding = New Padding(7, 2, 0, 2)
-		MenuStrip1.Size = New Size(220, 24)
+		MenuStrip1.Size = New Size(155, 24)
 		MenuStrip1.TabIndex = 0
 		MenuStrip1.Text = "MenuStrip1"
 		' 
@@ -54,6 +54,13 @@ Partial Class F_Main
 		StartToolStripMenuItem.Name = "StartToolStripMenuItem"
 		StartToolStripMenuItem.Size = New Size(43, 20)
 		StartToolStripMenuItem.Text = "Start"
+		' 
+		' CancelStripMenuItem
+		' 
+		CancelStripMenuItem.Enabled = False
+		CancelStripMenuItem.Name = "CancelStripMenuItem"
+		CancelStripMenuItem.Size = New Size(55, 20)
+		CancelStripMenuItem.Text = "Cancel"
 		' 
 		' CloseStripMenuItem
 		' 
@@ -72,7 +79,7 @@ Partial Class F_Main
 		SS_Main.Location = New Point(0, 506)
 		SS_Main.Name = "SS_Main"
 		SS_Main.Padding = New Padding(1, 0, 16, 0)
-		SS_Main.Size = New Size(718, 22)
+		SS_Main.Size = New Size(847, 22)
 		SS_Main.TabIndex = 1
 		SS_Main.Text = "StatusStrip1"
 		' 
@@ -87,21 +94,15 @@ Partial Class F_Main
 		Rtb_Log.Location = New Point(0, 31)
 		Rtb_Log.Margin = New Padding(4, 3, 4, 3)
 		Rtb_Log.Name = "Rtb_Log"
-		Rtb_Log.Size = New Size(717, 467)
+		Rtb_Log.Size = New Size(846, 467)
 		Rtb_Log.TabIndex = 2
 		Rtb_Log.Text = ""
-		' 
-		' CancelStripMenuItem
-		' 
-		CancelStripMenuItem.Name = "CancelStripMenuItem"
-		CancelStripMenuItem.Size = New Size(55, 20)
-		CancelStripMenuItem.Text = "Cancel"
 		' 
 		' F_Main
 		' 
 		AutoScaleDimensions = New SizeF(7F, 15F)
 		AutoScaleMode = AutoScaleMode.Font
-		ClientSize = New Size(718, 528)
+		ClientSize = New Size(847, 528)
 		Controls.Add(Rtb_Log)
 		Controls.Add(SS_Main)
 		Controls.Add(MenuStrip1)
