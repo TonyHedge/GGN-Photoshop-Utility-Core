@@ -90,13 +90,16 @@ Public Class F_Main
 
 		#if DEBUG
 				Me.Text = Me.Text + " - Debug"
-		#End If
+#End If
 '
 '	Read the persistent data from the Settings.xml file
-'
+	'
+		Dim fp as string = Environment.ExpandEnvironmentVariables("%LocalAppData%\\Photoshop Utility")
+
+		If Not Directory.Exists(fp) Then Directory.CreateDirectory( fp )
 		Try
 			Persistent.Clear()
-			Persistent = File.ReadAllLines($"{Application.StartupPath}\\Settings.xml").ToList()
+			Persistent = File.ReadAllLines(Environment.ExpandEnvironmentVariables("%LocalAppData%\\Photoshop Utility\\Settings.xml")).ToList()
 
 			RegexMatches = Regex.Matches(Persistent(1), "=""(.*?)""")
 			MyPhotoPath = RegexMatches(0).Groups(1).Value
@@ -143,7 +146,7 @@ Public Class F_Main
 		Persistent.Add("<?xml version=""1.0"" encoding=""UTF-8""?>")
 		Persistent.Add($"<Data SourceFolder=""{MyPhotoPath}"" OutputFolder=""{OutputFolderName}\""></Data>")
 
-		File.WriteAllLines($"{Application.StartupPath}\\Settings.xml", Persistent)
+		File.WriteAllLines( Environment.ExpandEnvironmentVariables("%LocalAppData%\\Photoshop Utility\\Settings.xml"), Persistent)
 	End Sub
 '
 '************************************************************************************************************
