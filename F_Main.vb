@@ -139,11 +139,11 @@ Public Class F_Main
 '
 '	Write the persistent data to the Settings.xml file
 '
-		Persistent.Clear()
-		Persistent.Add("<?xml version=""1.0"" encoding=""UTF-8""?>")
-		Persistent.Add($"<Data SourceFolder=""{MyPhotoPath}"" OutputFolder=""{OutputFolderName}\""></Data>")
+		'Persistent.Clear()
+		'Persistent.Add("<?xml version=""1.0"" encoding=""UTF-8""?>")
+		'Persistent.Add($"<Data SourceFolder=""{MyPhotoPath}"" OutputFolder=""{OutputFolderName}\""></Data>")
 
-		File.WriteAllLines($"{Application.StartupPath}\\Settings.xml", Persistent)
+		'File.WriteAllLines($"{Application.StartupPath}\\Settings.xml", Persistent)
 	End Sub
 '
 '************************************************************************************************************
@@ -468,9 +468,9 @@ Public Class F_Main
 		Dim i As Integer
 		Dim r
 		Dim c As CentreDialog
-		'
-		'   Launch Photoshop, if not already running, and re-size it's main windows to occupy half the monitor
-		'
+'
+'   Launch Photoshop, if not already running, and re-size it's main windows to occupy half the monitor
+'
 		On Error Resume Next                                                        ' Handle errors internally
 		Err.Clear
 
@@ -492,9 +492,9 @@ Public Class F_Main
 
 		PhotoShopApp.Preferences.RulerUnits = 3                                     'for PsUnits --> 1 (psCm)
 		PhotoShopApp.DisplayDialogs = 3                                             'for PsDialogModes --> 3 (psDisplayNoDialogs)
-		'
-		'	If there are an open Photos in Photoshop, ask the user if they are to be processed
-		'
+'
+'	If there are opened Photos in Photoshop, ask the user if they are to be processed
+'
 		If PhotoShopApp.Documents.Count > 0 Then
 			Using New CentreDialog(Me)
 				r = MsgBox("Process all photos in the same folder as the opened photos ?" + Environment.NewLine + Environment.NewLine +
@@ -504,17 +504,17 @@ Public Class F_Main
 
 			If r = vbCancel Then
 				Exit Sub
-				'
-				'	Just the opened photos are to be processed
-				'
+'
+'	Just the opened photos are to be processed
+'
 			ElseIf r = vbNo Then
 				MyPhotoNames.Clear()
 				For i = 1 To PhotoShopApp.Documents.Count
 					MyPhotoNames.Add(PhotoShopApp.Documents(i).FullName)
 				Next
-				'
-				'	Create a list of all the photos in the same folder as the opened photos
-				'
+'
+'	Create a list of all the photos in the same folder as the opened photos
+'
 			ElseIf r = vbYes Then
 				MyPhotoNames.Clear()
 				MyPhotoPath = PhotoShopApp.Documents(1).FullName.Substring(0, InStrRev(PhotoShopApp.Documents(1).FullName, "\"))
@@ -524,9 +524,9 @@ Public Class F_Main
 					MyPhotoNames.AddRange(FileNames)
 				Next
 			End If
-			'
-			' There is no open image, so ask the user to select the images to be processed
-			'
+'
+' There is no open image, so ask the user to select the images to be processed
+'
 		Else
 			MyPhotoNames = SelectImages()                                           ' Get the names of the images the user has selected
 			If Not MyPhotoNames Is Nothing Then
@@ -535,18 +535,18 @@ Public Class F_Main
 				Exit Sub
 			End If
 		End If
-		'
-		'	Display the source folder name and the list of photos to be processed
-		'
+'
+'	Display the source folder name and the list of photos to be processed
+'
 		MyPhotoPath = MyPhotoNames(0).Substring(0, InStrRev(MyPhotoNames(0), "\"))  ' Get the path of the first selected image
 		AppendToRTB("Source folder:" & vbTab & MyPhotoPath & vbCrLf, Color.Black, StndFont)
 
 		For Each p As String In MyPhotoNames
 			AppendToRTB(vbTab & p.Substring(InStrRev(p, "\")) & vbCrLf, Color.Black, StndFont)
 		Next
-		'
-		'   Select folder in which reformatted photos are to be stored
-		'
+'
+'   Select folder in which reformatted photos are to be stored
+'
 		OutputFolderName = GetOutputPath
 		If OutputFolderName = vbNullString Then
 			AppendToRTB("Failed to get name of Output Folder, run aborted" & vbCrLf, Color.Red, BoldFont)
@@ -554,9 +554,9 @@ Public Class F_Main
 		End If
 
 		AppendToRTB("Output folder:" & vbTab & OutputFolderName & vbCrLf, Color.Black, StndFont)
-		'
-		'	Ask whether photo are to be converted to Black & White
-		'
+'
+'	Ask whether photo are to be converted to Black & White
+'
 		Using New CentreDialog(Me)
 			r = MsgBox("Convert Photographs to Black and White ?", vbQuestion + vbYesNoCancel + vbMsgBoxSetForeground, "GGN PhotoShop Automation")
 		End Using
@@ -569,12 +569,12 @@ Public Class F_Main
 		Else
 			Exit Sub
 		End If
-		'
-		'	Convert all the selected photos to GGN format in a 'Backgroundworker' thread
-		'	Thus allowing the GUI to remain responsive to the user
-		'	Control is returned to this thread, the GUI thread, immediately after the BackgroundWorker is run
-		'	All further progress and error reports are made through event reported by the Background Worker
-		'
+'
+'	Convert all the selected photos to GGN format in a 'Backgroundworker' thread
+'	Thus allowing the GUI to remain responsive to the user
+'	Control is returned to this thread, the GUI thread, immediately after the BackgroundWorker is run
+'	All further progress and error reports are made through event reported by the Background Worker
+'
 		Worker.RunWorkerAsync()                                                     ' Start the BackgroundWorker thread
 
 	End Sub
