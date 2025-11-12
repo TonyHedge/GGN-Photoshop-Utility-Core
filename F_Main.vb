@@ -4,11 +4,11 @@
 '	Copyright @2025 C.A.(Tony) Hedge
 '
 '   Does the processing of Colour and B&W photo files for input into GGN Magazine
-'   Converts .jpg or .psd file to a .tif file with LGW Compression and ICC/sRGB off
+'   Converts image files to .tif files with LGW Compression and ICC/sRGB off
 '   Resizes photo without resampling to 300 ppi
 '   Resizes with resampling to 19cm for colour photos and 9 cm wide for B&W photos
 '   Converts colour photos to CMYK, and B&W photos to Greyscale
-'   Does above for a single file or all .jpg (and .tif) files in the folder at the user's discretion
+'   Does above for a single file or all image files in the folder at the user's discretion
 '   Saves resulting image in folder of user's choice
 '
 '   Change History:-
@@ -27,6 +27,7 @@
 '	v2.0		15.02.25	Converted to Windows Forms Application
 '	v2.1		10.05.25	Simplified implementation and made the selection of Phots more user friendly
 '	v2.2		12.05.25	Added a Backgroundworker thread to allow the GUI to remain responsive while the photos are being processed
+'	v2.3		12.11.25	Added *.jpeg files to the list of image files processed
 '
 Imports System.ComponentModel
 Imports System.IO
@@ -63,7 +64,7 @@ Public Class F_Main
 	Dim Persistent As List(Of String)
 	Dim PhotoShopApp
 	Dim PhotoShopProcess
-	Dim PhotoTypes As New List(Of String) From {"*.jpg", "*.tiff", "*.png", "*.bmp", "*.gif", "*.psd"}
+	Dim PhotoTypes As New List(Of String) From {"*.jpg", "*.jpeg", "*.tiff", "*.png", "*.bmp", "*.gif", "*.psd"}
 	Dim OutputFileName As String
 	Dim OutputFolderName As String
 	Dim RegexMatches As MatchCollection
@@ -266,25 +267,25 @@ Public Class F_Main
 			Return folderBrowserDialog1.SelectedPath                            ' Output folder Path
 		End If
 	End Function
-	'
-	'************************************************************************************************************
-	'
-	'	ProcessPhoto (Function)
-	'
-	'	Called by
-	'		F_Main.Start_Click
-	'
-	'	Parameters:-
-	'		MyPhoto				- Photograph to be processed
-	'		OutputFolderName	- Name of the Output Folder
-	'		OutputFileName		- File Name of the Processed Photo
-	'		BlackWhite			- Whether Balck & White Photo or Coloured Photo
-	'		worker				- The Backgroundworker under which this function is running
-	'
-	'	This function is called by the BackgroundWorker thread to process the selected photos
-	'	It must report errors/progress to the main thread by calling the Worker.ProgressChanged method
-	'	as it cannot update the GUI directly
-	'
+'
+'************************************************************************************************************
+'
+'	ProcessPhoto (Function)
+'
+'	Called by
+'		F_Main.Start_Click
+'
+'	Parameters:-
+'		MyPhoto				- Photograph to be processed
+'		OutputFolderName	- Name of the Output Folder
+'		OutputFileName		- File Name of the Processed Photo
+'		BlackWhite			- Whether Balck & White Photo or Coloured Photo
+'		worker				- The Backgroundworker under which this function is running
+'
+'	This function is called by the BackgroundWorker thread to process the selected photos
+'	It must report errors/progress to the main thread by calling the Worker.ProgressChanged method
+'	as it cannot update the GUI directly
+'
 	Function ProcessPhoto(ByVal MyPhoto, ByVal OutputFolderName, ByVal OutputFileName, ByVal BlackWhite, ByVal worker) As String
 
 		Dim i, TiffOptions
@@ -361,21 +362,21 @@ Public Class F_Main
 		Return OutputFileName
 
 	End Function
-	'
-	'************************************************************************************************************
-	'
-	'	ResizePhotoshopWindow (Subroutine)
-	'
-	'	Called by
-	'		F_Main.Start_Click
-	'
-	'	Parameters:-
-	'		WindowHandle				- Handle of Photoshop's Main Window
-	'
-	'   This subroutine controls the size and position of the InDesign window. The InDesign window is always displayed underlapping
-	'	the GGN Utilty window, but may either be displayed as encountered when the GGN Utility is first run or in the bottom right
-	'	hand half of the screen
-	'
+'
+'************************************************************************************************************
+'
+'	ResizePhotoshopWindow (Subroutine)
+'
+'	Called by
+'		F_Main.Start_Click
+'
+'	Parameters:-
+'		WindowHandle				- Handle of Photoshop's Main Window
+'
+'   This subroutine controls the size and position of the InDesign window. The InDesign window is always displayed underlapping
+'	the GGN Utilty window, but may either be displayed as encountered when the GGN Utility is first run or in the bottom right
+'	hand half of the screen
+'
 	Sub ResizePhotoshopWindow(ByVal WindowHandle As IntPtr)
 
 		Dim b As Boolean
@@ -400,26 +401,26 @@ Public Class F_Main
 		End If
 
 	End Sub
-	'
-	'************************************************************************************************************
-	'
-	'	Select Images (Subroutine)
-	'
-	'	Called by
-	'		F_Main.Start_Click
-	'
-	'	Returns:-
-	'		List of selected images' names
-	'		Nothing	- user cancelled or errror encountered
-	'
-	'   This subroutine selects the images to be processed
-	'
+'
+'************************************************************************************************************
+'
+'	Select Images (Subroutine)
+'
+'	Called by
+'		F_Main.Start_Click
+'
+'	Returns:-
+'		List of selected images' names
+'		Nothing	- user cancelled or errror encountered
+'
+'   This subroutine selects the images to be processed
+'
 	Function SelectImages() As List(Of String)
 
 		Dim openFileDialog1 As New OpenFileDialog()
 
 		openFileDialog1.InitialDirectory = MyPhotoPath
-		openFileDialog1.Filter = "Photo files |*.jpg;*.png;*.tif;*.bmp;*.gif;*.psd|All files (*.*)|*.*"
+		openFileDialog1.Filter = "Photo files |*.jpg;*.jpeg;*.png;*.tif;*.bmp;*.gif;*.psd|All files (*.*)|*.*"
 		openFileDialog1.FilterIndex = 1
 		openFileDialog1.RestoreDirectory = False
 		openFileDialog1.Title = "Select the Photos to be processed"
@@ -444,21 +445,21 @@ Public Class F_Main
 		End Try
 
 	End Function
-	'
-	'************************************************************************************************************
-	'
-	'	Start_Click (Event Procedure)
-	'
-	'	Called when
-	'		User clicks on the Start menu
-	'
-	'	Launches PhotoShop CS2, if not already running
-	'	Creates a list of the Photos/Images to be converted to GGN format by
-	'		(a) Including in the list just the currently active Photo/Image in PhotoShop
-	'		(b) Including in the list all the Photos/Images in the same folder as the Photo/Image currently active in PhotoShop
-	'		(c) Prompting the user to select the Photos/Images to be processed
-	'	Converts the selected Photos/Images to GGN format
-	'
+'
+'************************************************************************************************************
+'
+'	Start_Click (Event Procedure)
+'
+'	Called when
+'		User clicks on the Start menu
+'
+'	Launches PhotoShop CS2, if not already running
+'	Creates a list of the Photos/Images to be converted to GGN format by
+'		(a) Including in the list just the currently active Photo/Image in PhotoShop
+'		(b) Including in the list all the Photos/Images in the same folder as the Photo/Image currently active in PhotoShop
+'		(c) Prompting the user to select the Photos/Images to be processed
+'	Converts the selected Photos/Images to GGN format
+'
 	Private Sub Start_Click(sender As Object, e As EventArgs) Handles StartToolStripMenuItem.Click
 
 		Dim InFolder As DirectoryInfo
@@ -577,17 +578,17 @@ Public Class F_Main
 		Worker.RunWorkerAsync()                                                     ' Start the BackgroundWorker thread
 
 	End Sub
-	'
-	'************************************************************************************************************
-	'
-	'	Worker_DoWork (Event Procedure)
-	'
-	'	Called when
-	'		The BackgroundWorker thread is started
-	'
-	'	This event procedure runs on the BackgroundWorker thread and does the time/resource consuming processing
-	'	Loops over all the selected photos and processes them
-	'
+'
+'************************************************************************************************************
+'
+'	Worker_DoWork (Event Procedure)
+'
+'	Called when
+'		The BackgroundWorker thread is started
+'
+'	This event procedure runs on the BackgroundWorker thread and does the time/resource consuming processing
+'	Loops over all the selected photos and processes them
+'
 	Private Sub Worker_DoWork(ByVal sender As Object, ByVal e As DoWorkEventArgs)
 
 		Dim worker As BackgroundWorker = CType(sender, BackgroundWorker)        ' Get the BackgroundWorker object that raised this event
@@ -595,16 +596,16 @@ Public Class F_Main
 		e.Result = ConvertPhotos(worker, e)                                   ' Convert all the selected photos to GGN format
 
 	End Sub
-	'
-	'************************************************************************************************************
-	'
-	'	Worker_ProgressChanged (Event Procedure)
-	'
-	'	Called when
-	'		The BackgroundWorker thread reports a change
-	'
-	'	This event procedure runs on the main GUI thread and Reports errors/progress to the user
-	'
+'
+'************************************************************************************************************
+'
+'	Worker_ProgressChanged (Event Procedure)
+'
+'	Called when
+'		The BackgroundWorker thread reports a change
+'
+'	This event procedure runs on the main GUI thread and Reports errors/progress to the user
+'
 	Private Sub Worker_ProgressChanged(sender As Object, e As System.ComponentModel.ProgressChangedEventArgs)
 
 		Dim FontColour As Color = Color.Black
