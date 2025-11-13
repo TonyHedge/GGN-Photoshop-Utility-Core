@@ -27,12 +27,11 @@
 '	v2.0		15.02.25	Converted to Windows Forms Application
 '	v2.1		10.05.25	Simplified implementation and made the selection of Phots more user friendly
 '	v2.2		12.05.25	Added a Backgroundworker thread to allow the GUI to remain responsive while the photos are being processed
-'	v2.3		12.11.25	Added *.jpeg files to the list of image files processed
+'	v2.3		12.11.25	Added *.jpeg files to the list of image files processed. Added Persistent data.
 '
 Imports System.ComponentModel
 Imports System.IO
 Imports System.Text.RegularExpressions
-Imports System.Xml
 
 #Disable Warning CA1416
 '
@@ -54,6 +53,8 @@ Public Class F_Main
 	Public Declare Function ShowWindow Lib "user32" (ByVal hWnd As IntPtr, ByVal nCmdShow As Integer) As Boolean
 	Public Const SW_RESTORE As Integer = 9
 
+	
+	Dim Settings As [String] = "%LocalAppData%\GGN\Settings.xml"
 	Dim Worker As BackgroundWorker = New BackgroundWorker
 '
 '	Global Data
@@ -61,7 +62,7 @@ Public Class F_Main
 	Dim BlackWhite As Boolean
 	Dim MyPhotoPath As String
 	Dim MyPhotoNames As New List(Of String)()
-	Dim Persistent As List(Of String)
+	Dim Persistent As New List(Of String)
 	Dim PhotoShopApp
 	Dim PhotoShopProcess
 	Dim PhotoTypes As New List(Of String) From {"*.jpg", "*.jpeg", "*.tiff", "*.png", "*.bmp", "*.gif", "*.psd"}
@@ -85,7 +86,7 @@ Public Class F_Main
 '
 	Private Sub F_Main_Load(sender As Object, e As EventArgs) Handles MyBase.Load
 
-		AppendToRTB("GGN Photoshop Utility (v" & VersionNbr & ")" & vbCrLf, Color.Blue, LargeFont)
+		AppendToRTB( "GGN Photoshop Utility (v" & VersionNbr & ")" & vbCrLf, Color.Blue, LargeFont )
 
 		Me.Location = New Point(5, 5)
 
@@ -96,7 +97,7 @@ Public Class F_Main
 '	Read the persistent data from the Settings.xml file
 '
 		Try
-			Persistent = File.ReadAllLines($"{Application.StartupPath}\\Settings.xml").ToList()
+			Persistent = File.ReadAllLines( Environment.ExpandEnvironmentVariables(Settings) ).ToList()
 
 			RegexMatches = Regex.Matches(Persistent(1), "=""(.*?)""")
 			MyPhotoPath = RegexMatches(0).Groups(1).Value
@@ -106,6 +107,8 @@ Public Class F_Main
 			MyPhotoPath = "C:\"
 			OutputFolderName = "C:\"
 		End Try
+
+		'AppendToRTB( $"Application Startup Path:  {Application.StartupPath}", Color.Black, StndFont )
 '
 '	Set the BackgroundWorker
 '	This will do the time/resource consuming processing of the Photos in the background
@@ -139,11 +142,16 @@ Public Class F_Main
 '
 '	Write the persistent data to the Settings.xml file
 '
-		'Persistent.Clear()
-		'Persistent.Add("<?xml version=""1.0"" encoding=""UTF-8""?>")
-		'Persistent.Add($"<Data SourceFolder=""{MyPhotoPath}"" OutputFolder=""{OutputFolderName}\""></Data>")
+		Persistent.Clear()
+		Persistent.Add("<?xml version=""1.0"" encoding=""UTF-8""?>")
+		Persistent.Add($"<Data SourceFolder=""{MyPhotoPath}"" OutputFolder=""{OutputFolderName}""></Data>")
 
-		'File.WriteAllLines($"{Application.StartupPath}\\Settings.xml", Persistent)
+		Try
+			My.Computer.FileSystem.CreateDirectory( Environment.ExpandEnvironmentVariables("%LocalAppData%") & "\GGN" )
+			File.WriteAllLines( Environment.ExpandEnvironmentVariables(Settings), Persistent )
+		Catch																		' Ignore any errors
+		End Try
+
 	End Sub
 '
 '************************************************************************************************************
@@ -291,9 +299,9 @@ Public Class F_Main
 		Dim i, TiffOptions
 
 		On Error Resume Next
-		'
-		'   Make sure file extension of output filename is ".tif"
-		'
+'
+'   Make sure file extension of output filename is ".tif"
+'
 		OutputFileName = OutputFileName.Substring(0, InStrRev(OutputFileName, ".")) & "tif"
 		'
 		'   Now configure the photo with the required parameters
@@ -301,9 +309,9 @@ Public Class F_Main
 		MyPhoto.Flatten                                     ' Flatten the layers in the image
 		MyPhoto.ColorProfileType = 1                        ' 1 = psNo; Turn ICC/sRGB off
 		MyPhoto.ResizeImage(, , 300, 1)                 ' 1 = psNoResampling; Resize image to 300 ppi without ReSampling
-		'
-		' It is to be a B&W photo so ...
-		'
+'
+' It is to be a B&W photo so ...
+'
 		If BlackWhite Then
 			If MyPhoto.Width > 9 Then
 				MyPhoto.ResizeImage(9 * 25 / 6, , , 5)      ' (CS2) Resize images to 9cm wide using BiCubicSharper resampling (5 = psBicubicSharper)
@@ -321,9 +329,9 @@ Public Class F_Main
 			'
 			i = InStrRev(OutputFileName, ".")               ' Position (if any) of "." in the Output File Name
 			OutputFileName = OutputFileName.Substring(OutputFileName.Length - i) & "_BW" & OutputFileName.Substring(i + 1, OutputFileName.Length - i)
-			'
-			'	It's a colour photo so ...
-			'	
+'
+'	It's a colour photo so ...
+'	
 		Else
 			If MyPhoto.Width > 19 Then
 				MyPhoto.ResizeImage(19 * 25 / 6, , , 5)    ' (CS2) Resize images to 16cm wide using BiCubicSharper resampling (5 = psBicubicSharper)
@@ -332,9 +340,9 @@ Public Class F_Main
 
 			MyPhoto.ChangeMode(3)                          ' 3 = psConvertToCMYK; convert colour profile to CMYK
 		End If
-		'
-		'   Save the newly configured Tiff image
-		'
+'
+'   Save the newly configured Tiff image
+'
 		Err.Clear
 		TiffOptions = CreateObject("Photoshop.TIFFSaveOptions")
 		If Err.Number <> 0 Then
@@ -352,9 +360,9 @@ Public Class F_Main
 				'AppendToRTB("Error Description: " & Err.Description & vbCrLf, Color.Red, BoldFont)
 			End If
 		End If
-		'
-		'   Now close the source image without modifying it
-		'
+'
+'   Now close the source image without modifying it
+'
 		MyPhoto.Close(2)                                    ' 2 = psDoNotSaveChanges; Close without saving changes to Jpeg image
 
 		TiffOptions = Nothing
@@ -380,9 +388,9 @@ Public Class F_Main
 	Sub ResizePhotoshopWindow(ByVal WindowHandle As IntPtr)
 
 		Dim b As Boolean
-		'
-		'	Make the Photoshop window occupy the right-hand side of the monitor
-		'
+'
+'	Make the Photoshop window occupy the right-hand side of the monitor
+'
 		b = SetWindowPos(WindowHandle, 1, _                                  ' Bottom of the Z-order
 							Screen.PrimaryScreen.WorkingArea.Width / 2,         ' Left = Halfway across the Monitor
 							1,                                                  ' Top = Top of Monitor
