@@ -75,7 +75,7 @@ Public Class F_Main
 	Dim StndFont As New Font(fontFamily, 10, FontStyle.Regular)
 	Dim BoldFont As New Font(fontFamily, 10, FontStyle.Bold)
 
-	Public Const VersionNbr = "2.3"
+	Public Const VersionNbr = "2.4"
 '
 '************************************************************************************************************
 '
@@ -314,7 +314,7 @@ Public Class F_Main
 '
 		If BlackWhite Then
 			If MyPhoto.Width > 9 Then
-				MyPhoto.ResizeImage(9 * 25 / 6, , , 5)      ' (CS2) Resize images to 9cm wide using BiCubicSharper resampling (5 = psBicubicSharper)
+				MyPhoto.ResizeImage(19 * 25 / 6, , , 5)     ' (CS2) Resize images to 19cm wide using BiCubicSharper resampling (5 = psBicubicSharper)
 				'				 MyPhoto.ResizeImage 9, , , 5				' (CS3) Resize images to 9cm wide using BiCubicSharper resampling (5 = psBicubicSharper)
 			End If
 
